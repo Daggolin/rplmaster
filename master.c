@@ -109,7 +109,8 @@ int main(int argc, char *argv[]) {
 		char data[MAX_RECVLEN];
 		fd_set fds;
 		struct sockaddr_in from;
-		int len, ret_val;
+		int ret_val;
+		ssize_t len;
 		socklen_t fromlen;
 
 		// prepare data for select call
@@ -180,7 +181,7 @@ int ParseConfig(void *user, const char *section, const char *name, const char *v
 
 	if (!strcmp(section, "RPLMaster")) {
 		if (!strcmp(name, "port")) {
-			cfg->port = atoi(value);
+			cfg->port = (uint16_t)atoi(value); // We don't care about explicitly handling invalid input here
 		} else if (!strcmp(name, "request")) {
 			cfg->request = atoi(value);
 		} else if (!strcmp(name, "timeout")) {
@@ -210,7 +211,7 @@ int ParseConfig(void *user, const char *section, const char *name, const char *v
 		} else if (!strcmp(name, "host")) {
 			strncpy(cfg->srcmasters[srvNum].host, value, sizeof(cfg->srcmasters[0].host)-1);
 		} else if (!strcmp(name, "port")) {
-			cfg->srcmasters[srvNum].port = atoi(value);
+			cfg->srcmasters[srvNum].port = (uint16_t)atoi(value); // We don't care about explicitly handling invalid input here
 		} else if (!strcmp(name, "protocols")) {
 			int num = 0;
 			char *t = strtok((char *)value, ",");
@@ -230,7 +231,7 @@ int ParseConfig(void *user, const char *section, const char *name, const char *v
 	return 1;
 }
 
-void PacketReceived(SOCKET socket, char *data, int len, struct sockaddr_in *from) {
+void PacketReceived(SOCKET socket, char *data, ssize_t len, struct sockaddr_in *from) {
 	char cmd[64], arg1[64], arg2[64];
 
 	data[len] = 0;
@@ -476,7 +477,7 @@ void PacketReceived(SOCKET socket, char *data, int len, struct sockaddr_in *from
 	} else if (!strcmp(cmd, "getservers")) {
 		//char resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 7 + 4];
 		char resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 13 + 4 ];
-		int resplen;
+		size_t resplen;
 		int protocol;
 		int i, numsrvsresp = 0, numsrvs = 0;
 
@@ -602,11 +603,11 @@ void PacketReceived(SOCKET socket, char *data, int len, struct sockaddr_in *from
 		} else if (!strcmp(arg1, "startup")) {
 			char resp[16];
 			sprintf(resp, "%lu", (uint64_t)stat_startup);
-			sendto(srvsock, resp, (int)strlen(resp) + 1, 0, (const struct sockaddr *)from, sizeof(struct sockaddr_in));
+			sendto(srvsock, resp, strlen(resp) + 1, 0, (const struct sockaddr *)from, sizeof(struct sockaddr_in));
 		} else if (!strcmp(arg1, "reqs")) {
 			char resp[16];
 			sprintf(resp, "%lu", (uint64_t)stat_reqs);
-			sendto(srvsock, resp, (int)strlen(resp) + 1, 0, (const struct sockaddr *)from, sizeof(struct sockaddr_in));
+			sendto(srvsock, resp, strlen(resp) + 1, 0, (const struct sockaddr *)from, sizeof(struct sockaddr_in));
 		}
 	} else {
 		println(MSG_DEBUG, "unknown packet received from %s", addrstr(from));
@@ -636,7 +637,12 @@ void TimerEvent() {
 			continue;
 		}
 
-		memcpy(&conf.srcmasters[i].addr.sin_addr, host->h_addr_list[0], host->h_length);
+		// Not sure if this can happen on any platform, but memcpy expects size_t (unsigned) and h_length is an integer
+		if ( host->h_length < 0 ) {
+			continue;
+		}
+
+		memcpy(&conf.srcmasters[i].addr.sin_addr, host->h_addr_list[0], (size_t)host->h_length);
 		conf.srcmasters[i].addr.sin_family = AF_INET;
 		conf.srcmasters[i].addr.sin_port = htons(conf.srcmasters[i].port);
 
@@ -657,7 +663,7 @@ void TimerEvent() {
 				sprintf(req, "\xFF\xFF\xFF\xFFgetservers %i", conf.srcmasters[i].protocols[j]);
 			}
 
-			sendto(srvsock, req, (int)strlen(req), 0, (const struct sockaddr *)&conf.srcmasters[i].addr, sizeof(conf.srcmasters[i].addr));
+			sendto(srvsock, req, strlen(req), 0, (const struct sockaddr *)&conf.srcmasters[i].addr, sizeof(conf.srcmasters[i].addr));
 		}
 	}
 

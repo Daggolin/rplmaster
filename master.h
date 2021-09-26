@@ -75,7 +75,7 @@ typedef struct {
 	int active;
 	char host[128];
 	struct sockaddr_in addr;
-	int port;
+	uint16_t port;
 	int protocols[MAX_PROTOCOLS];
 	int interval;
 	time_t nextReq;
@@ -93,7 +93,7 @@ typedef struct {
 } srv_t;
 
 typedef struct {
-	int port;
+	uint16_t port;
 	int request;
 	int timeout;
 	int debug;
@@ -112,7 +112,7 @@ typedef struct {
 	int numreq;
 } reqip_t;
 
-void PacketReceived(SOCKET socket, char *data, int len, struct sockaddr_in *from);
+void PacketReceived(SOCKET socket, char *data, ssize_t len, struct sockaddr_in *from);
 int ParseConfig(void *user, const char *section, const char *name, const char *value);
 void TimerEvent();
 char *Info_ValueForKey(const char *s, const char *key);
