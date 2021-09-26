@@ -29,12 +29,15 @@ int main(int argc, char *argv[]) {
 	tv.tv_sec = 0;
 	tv.tv_usec = RECV_TIMEOUT * 1000;
 
+	int highestFD;
+
 	if (argc < 3) {
 		println(MSG_INFO, "Usage: "DEFAULT_EXE_NAME" <configfile> <backupfile>");
 		println(MSG_INFO, "Example: "DEFAULT_EXE_NAME" rplmaster.cfg rplmaster.bak");
 		return 0;
 	}
-	strncpy(fileBackup, argv[2], sizeof(fileBackup));
+	strncpy(fileBackup, argv[2], sizeof(fileBackup)-1);
+	fileBackup[sizeof(fileBackup)-1] = 0;
 
 	println(MSG_INFO, "-----------------------------------------");
 	println(MSG_INFO, "RPLMaster v"STR_VERSION"");
@@ -65,6 +68,20 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	// set non-blocking
+#ifdef WIN32
+	unsigned long e1 = 1, e2 = 1;
+	if (ioctlsocket(srvsock, FIONBIO, &e1) != 0 || ioctlsocket(querysock, FIONBIO, &e1) != 0)
+#else
+	if (fcntl(srvsock, F_SETFL, fcntl(srvsock, F_GETFL, 0) | O_NONBLOCK) == -1 || fcntl(querysock, F_SETFL, fcntl(querysock, F_GETFL, 0) | O_NONBLOCK) == -1) {
+#endif
+		println(MSG_ERROR, "failed to make sockets non-blocking.");
+	}
+
+	// determine highest fd
+	if ( srvsock > querysock ) highestFD = srvsock;
+	else highestFD = querysock;
+
 	// bind to port
 	println(MSG_DEBUG, "starting to listen on port %i...", conf.port);
 	srvip.sin_family = AF_INET;
@@ -89,26 +106,25 @@ int main(int argc, char *argv[]) {
 	TimerEvent();
 
 	while (1) {
-		byte data[MAX_RECVLEN + 1];
-		struct fd_set fds;
+		char data[MAX_RECVLEN];
+		fd_set fds;
 		struct sockaddr_in from;
-		int len, il, ret_val;
+		int len, ret_val;
 		socklen_t fromlen;
-		int i;
 
 		// prepare data for select call
 		FD_ZERO(&fds);
 		FD_SET(srvsock, &fds);
 		FD_SET(querysock, &fds);
 
-		ret_val = select(FD_SETSIZE, &fds, NULL, NULL, &tv);
+		ret_val = select(highestFD+1, &fds, NULL, NULL, &tv);
 		if (ret_val > 0) {
 			for (SOCKET sock = srvsock, i = 0; i < 2; sock = querysock, i++) {
 				if (!FD_ISSET(sock, &fds))
 					continue;
 
 				fromlen = sizeof(from);
-				len = recvfrom(sock, (char *)data, MAX_RECVLEN, 0, (struct sockaddr *)&from, &fromlen);
+				len = recvfrom(sock, (char *)data, sizeof(data), 0, (struct sockaddr *)&from, &fromlen);
 
 				// packets & firewall
 				if (len > 0) {
@@ -214,7 +230,7 @@ int ParseConfig(void *user, const char *section, const char *name, const char *v
 	return 1;
 }
 
-void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from) {
+void PacketReceived(SOCKET socket, char *data, int len, struct sockaddr_in *from) {
 	char cmd[64], arg1[64], arg2[64];
 
 	data[len] = 0;
@@ -253,7 +269,7 @@ void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from
 		}
 
 		// 24B (\xFF\xFF\xFF\xFFgetserversResponse\n\x00) + 1B '\' + 3B (EO(T|F))
-		if (len <= sizeof("getserversResponse\n") + 1 + 3) {
+		if ((size_t)len <= sizeof("getserversResponse\n") + 1 + 3) {
 			return;
 		}
 
@@ -288,7 +304,7 @@ void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from
 				char hexValue[3] = { 0 };
 				for ( i = 0; i < 6; i++ ) {
 					memcpy( hexValue, &data[scanpos+1+(i*2)], 2 );
-					data[scanpos+1+i] = (unsigned char)strtoul( hexValue, NULL, 16 );
+					data[scanpos+1+i] = (char)strtoul( hexValue, NULL, 16 );
 				}
 			}
 
@@ -458,8 +474,8 @@ void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from
 			}
 		}
 	} else if (!strcmp(cmd, "getservers")) {
-		//byte resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 7 + 4];
-		byte resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 13 + 4 ];
+		//char resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 7 + 4];
+		char resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 13 + 4 ];
 		int resplen;
 		int protocol;
 		int i, numsrvsresp = 0, numsrvs = 0;
@@ -585,11 +601,11 @@ void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from
 			sendto(srvsock, STR_VERSION, sizeof(STR_VERSION), 0, (const struct sockaddr *)from, sizeof(struct sockaddr_in));
 		} else if (!strcmp(arg1, "startup")) {
 			char resp[16];
-			sprintf(resp, "%llu", (uint64_t)stat_startup);
+			sprintf(resp, "%lu", (uint64_t)stat_startup);
 			sendto(srvsock, resp, (int)strlen(resp) + 1, 0, (const struct sockaddr *)from, sizeof(struct sockaddr_in));
 		} else if (!strcmp(arg1, "reqs")) {
 			char resp[16];
-			sprintf(resp, "%llu", (uint64_t)stat_reqs);
+			sprintf(resp, "%lu", (uint64_t)stat_reqs);
 			sendto(srvsock, resp, (int)strlen(resp) + 1, 0, (const struct sockaddr *)from, sizeof(struct sockaddr_in));
 		}
 	} else {

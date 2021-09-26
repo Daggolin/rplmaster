@@ -25,6 +25,8 @@
 #	include <unistd.h>
 #	include <netinet/in.h>
 #	include <arpa/inet.h>
+#	include <sys/select.h>
+#	include <fcntl.h>
 #endif
 
 // ---------------------------------------------------- SETTINGS ----------------------------------------------------
@@ -110,7 +112,7 @@ typedef struct {
 	int numreq;
 } reqip_t;
 
-void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from);
+void PacketReceived(SOCKET socket, char *data, int len, struct sockaddr_in *from);
 int ParseConfig(void *user, const char *section, const char *name, const char *value);
 void TimerEvent();
 char *Info_ValueForKey(const char *s, const char *key);
