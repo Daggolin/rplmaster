@@ -523,14 +523,14 @@ void PacketReceived(SOCKET socket, char *data, ssize_t len, struct sockaddr_in *
 			resp[resplen++] = (byte)'\\';
 
 			if (conf.stef) {
-				sprintf(&resp[resplen], "%x%x", ntohl(servers[i].addr.sin_addr.s_addr), ntohs(servers[i].addr.sin_port));
+				sprintf(&resp[resplen], "%08x%04x", ntohl(servers[i].addr.sin_addr.s_addr), ntohs(servers[i].addr.sin_port));
+				resplen += 12; // 8B (IP) + 4B (Port)
 			} else {
 				*(uint32_t *)(&resp[resplen]) = (uint32_t)servers[i].addr.sin_addr.s_addr;
 				*(uint16_t *)(&resp[resplen + 4]) = (uint16_t)servers[i].addr.sin_port;
+				resplen += 6; // 4B (IP) + 2B (Port)
 			}
 
-			if (conf.stef) resplen += 12; // 8B (IP) + 2B (Port)
-			else resplen += 6; // 4B (IP) + 2B (Port)
 			numsrvsresp++, numsrvs++;
 		}
 
