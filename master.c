@@ -63,6 +63,22 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	// timeout
+	tv.tv_sec = 0;
+	tv.tv_usec = RECV_TIMEOUT * 1000;
+
+	// set timeout
+	if (setsockopt(srvsock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) != 0) {
+		println(MSG_ERROR, "setsockopt failed.");
+		return 1;
+	}
+
+	// set timeout
+	if (setsockopt(querysock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) != 0) {
+		println(MSG_ERROR, "setsockopt failed.");
+		return 1;
+	}
+
 	// bind to port
 	println(MSG_DEBUG, "starting to listen on port %i...", conf.port);
 	srvip.sin_family = AF_INET;
