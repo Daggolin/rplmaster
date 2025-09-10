@@ -103,10 +103,10 @@ int main(int argc, char *argv[]) {
 	TimerEvent();
 
 	while (1) {
-		byte data[MAX_RECVLEN + 1];
+		char data[MAX_RECVLEN + 1];
 		fd_set fds;
 		struct sockaddr_in from;
-		int len, ret_val;
+		ssize_t len, ret_val;
 		socklen_t fromlen;
 
 		// prepare data for select call
@@ -232,7 +232,7 @@ int ParseConfig(void *user, const char *section, const char *name, const char *v
 	return 1;
 }
 
-void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from) {
+void PacketReceived(SOCKET socket, char *data, size_t len, struct sockaddr_in *from) {
 	char cmd[64], arg1[64], arg2[64];
 
 	data[len] = 0;
@@ -248,7 +248,7 @@ void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from
 	// only "getserversResponse" because dpmaster returns bad data
 	if (!strncmp(cmd, "getserversResponse", sizeof("getserversResponse")-1)) {
 		srcmaster_t *srcmaster = NULL;
-		int scanpos;
+		size_t scanpos;
 		int i;
 		int numServers = 0;
 
@@ -477,7 +477,7 @@ void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from
 		}
 	} else if (!strcmp(cmd, "getservers")) {
 		//byte resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 7 + 4];
-		byte resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 13 + 4 ];
+		char resp[sizeof("\xFF\xFF\xFF\xFFgetserversResponse\n") + MAX_SERVERS_PER_PACKET * 13 + 4 ];
 		int resplen;
 		int protocol;
 		int i, numsrvsresp = 0, numsrvs = 0;

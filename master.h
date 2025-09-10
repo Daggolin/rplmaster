@@ -111,7 +111,7 @@ typedef struct {
 	int numreq;
 } reqip_t;
 
-void PacketReceived(SOCKET socket, byte *data, int len, struct sockaddr_in *from);
+void PacketReceived(SOCKET socket, char *data, size_t len, struct sockaddr_in *from);
 int ParseConfig(void *user, const char *section, const char *name, const char *value);
 void TimerEvent();
 char *Info_ValueForKey(const char *s, const char *key);
