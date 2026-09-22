@@ -327,19 +327,19 @@ void PacketReceived(SOCKET socket, char *data, size_t len, struct sockaddr_in *f
 				// maximum number of servers for this ip reached
 				if (numip >= conf.maxserversip) {
 					println(MSG_WARNING, "can not add server %s maximum servers per ip reached", addrstr(&addr));
-				}
+				} else {
+					for (i = 0; i < MAX_SERVERS; i++) {
+						if (servers[i].state == STATE_UNUSED) {
+							int random = rand() % 11; // 0 to 10
 
-				for (i = 0; i < MAX_SERVERS; i++) {
-					if (servers[i].state == STATE_UNUSED) {
-						int random = rand() % 11; // 0 to 10
-
-						servers[i].state = STATE_DISABLED;
-						servers[i].protocol = 0;
-						servers[i].addr = addr;
-						servers[i].nextReq = time(0) + random; // not all at the same time
-						servers[i].disable = time(0) + conf.disable + random;
-						servers[i].timeout = time(0) + conf.timeout + random;
-						break;
+							servers[i].state = STATE_DISABLED;
+							servers[i].protocol = 0;
+							servers[i].addr = addr;
+							servers[i].nextReq = time(0) + random; // not all at the same time
+							servers[i].disable = time(0) + conf.disable + random;
+							servers[i].timeout = time(0) + conf.timeout + random;
+							break;
+						}
 					}
 				}
 			}
@@ -409,19 +409,19 @@ void PacketReceived(SOCKET socket, char *data, size_t len, struct sockaddr_in *f
 			// maximum number of servers for this ip reached
 			if (numip >= conf.maxserversip) {
 				println(MSG_WARNING, "can not add server %s maximum per ip reached", addrstr(from));
-			}
+			} else {
+				for (i = 0; i < MAX_SERVERS; i++) {
+					if (servers[i].state == STATE_UNUSED) {
+						servers[i].state = STATE_DISABLED;
+						servers[i].protocol = 0;
+						servers[i].addr = *from;
+						servers[i].nextReq = 0; // instantly
+						servers[i].disable = time(0) + conf.disable;
+						servers[i].timeout = time(0) + conf.timeout;
 
-			for (i = 0; i < MAX_SERVERS; i++) {
-				if (servers[i].state == STATE_UNUSED) {
-					servers[i].state = STATE_DISABLED;
-					servers[i].protocol = 0;
-					servers[i].addr = *from;
-					servers[i].nextReq = 0; // instantly
-					servers[i].disable = time(0) + conf.disable;
-					servers[i].timeout = time(0) + conf.timeout;
-
-					srv = &servers[i];
-					break;
+						srv = &servers[i];
+						break;
+					}
 				}
 			}
 		}
@@ -565,19 +565,19 @@ void PacketReceived(SOCKET socket, char *data, size_t len, struct sockaddr_in *f
 			// maximum number of servers for this ip reached
 			if (numip >= conf.maxserversip) {
 				println(MSG_WARNING, "can not add server %s maximum per ip reached", addrstr(from));
-			}
+			} else {
+				for (i = 0; i < MAX_SERVERS; i++) {
+					if (servers[i].state == STATE_UNUSED) {
+						servers[i].state = STATE_DISABLED;
+						servers[i].protocol = 0;
+						servers[i].addr = *from;
+						servers[i].nextReq = 0; // instantly
+						servers[i].disable = time(0) + conf.disable;
+						servers[i].timeout = time(0) + conf.timeout;
 
-			for (i = 0; i < MAX_SERVERS; i++) {
-				if (servers[i].state == STATE_UNUSED) {
-					servers[i].state = STATE_DISABLED;
-					servers[i].protocol = 0;
-					servers[i].addr = *from;
-					servers[i].nextReq = 0; // instantly
-					servers[i].disable = time(0) + conf.disable;
-					servers[i].timeout = time(0) + conf.timeout;
-
-					srv = &servers[i];
-					break;
+						srv = &servers[i];
+						break;
+					}
 				}
 			}
 		}
